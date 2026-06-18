@@ -155,7 +155,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 0.75rem;
       margin-bottom: 1.5rem;
     }
@@ -224,6 +224,7 @@
   <div class="stats-row" id="stats-row">
     <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">總紀錄筆數</div></div>
     <div class="stat-card"><div class="stat-num" id="stat-high" style="color:#e53e3e">—</div><div class="stat-label">高風險天數</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-mid" style="color:#d69e2e">—</div><div class="stat-label">中風險天數</div></div>
     <div class="stat-card"><div class="stat-num" id="stat-low" style="color:#38a169">—</div><div class="stat-label">低風險天數</div></div>
   </div>
 
@@ -254,25 +255,6 @@
         </form>
       </div>
 
-      <!-- 決策樹邏輯說明 -->
-      <div class="card" style="margin-top:1.5rem">
-        <h2>🌲 決策樹邏輯（三層）</h2>
-        <div class="decision-tree">Level 1：睡眠 &lt; 6h?
-├─ YES → Level 2：步數 &lt; 4000?
-│        ├─ YES → Level 3：心情 &lt; 5?
-│        │        ├─ YES → 🔴 高風險（三項全差）
-│        │        └─ NO  → 🔴 高風險（睡眠+活動嚴重不足）
-│        └─ NO  → Level 3：心情 &lt; 5?
-│                 ├─ YES → 🔴 高風險（睡眠差+心情差）
-│                 └─ NO  → 🟡 中風險（睡眠差但其他尚可）
-└─ NO  → Level 2：步數 &lt; 5000?
-         ├─ YES → Level 3：心情 &lt; 5?
-         │        ├─ YES → 🟡 中風險（活動少+心情差）
-         │        └─ NO  → 🟢 低風險（睡眠好心情好）
-         └─ NO  → Level 3：心情 &lt; 6?
-                  ├─ YES → 🟡 中風險（睡眠活動好但心情欠佳）
-                  └─ NO  → 🟢 低風險（三項全好）</div>
-      </div>
     </div>
 
     <!-- 右側：風險評估 + AI 建議 -->
@@ -319,7 +301,7 @@
   </div>
 
   <!-- 歷史紀錄表格（完整寬度） -->
-  <div class="card full-card" style="margin-top:1.5rem">
+  <div class="card full-card" style="margin-top:1.5rem" id="history-section">
     <h2>📋 歷史健康日誌</h2>
     <div class="table-wrap">
       <table id="log-table">
@@ -338,6 +320,26 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- 決策樹邏輯說明（最底部） -->
+  <div class="card full-card" style="margin-top:1.5rem;margin-bottom:2rem">
+    <h2>🌲 決策樹邏輯（三層）</h2>
+    <div class="decision-tree">Level 1：睡眠 &lt; 6h?
+├─ YES → Level 2：步數 &lt; 4000?
+│        ├─ YES → Level 3：心情 &lt; 5?
+│        │        ├─ YES → 🔴 高風險（三項全差）
+│        │        └─ NO  → 🔴 高風險（睡眠+活動嚴重不足）
+│        └─ NO  → Level 3：心情 &lt; 5?
+│                 ├─ YES → 🔴 高風險（睡眠差+心情差）
+│                 └─ NO  → 🟡 中風險（睡眠差但其他尚可）
+└─ NO  → Level 2：步數 &lt; 5000?
+         ├─ YES → Level 3：心情 &lt; 5?
+         │        ├─ YES → 🟡 中風險（活動少+心情差）
+         │        └─ NO  → 🟢 低風險（睡眠好心情好）
+         └─ NO  → Level 3：心情 &lt; 6?
+                  ├─ YES → 🟡 中風險（睡眠活動好但心情欠佳）
+                  └─ NO  → 🟢 低風險（三項全好）</div>
   </div>
 
 </div>
@@ -370,6 +372,7 @@
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state">尚無紀錄，請新增或載入種子資料</td></tr>';
         document.getElementById('stat-total').textContent = '0';
         document.getElementById('stat-high').textContent = '0';
+        document.getElementById('stat-mid').textContent = '0';
         document.getElementById('stat-low').textContent = '0';
         return;
       }
@@ -384,6 +387,7 @@
       // 統計
       document.getElementById('stat-total').textContent = logs.length;
       document.getElementById('stat-high').textContent = logs.filter(l => l.risk_level === '高').length;
+      document.getElementById('stat-mid').textContent = logs.filter(l => l.risk_level === '中').length;
       document.getElementById('stat-low').textContent = logs.filter(l => l.risk_level === '低').length;
 
       tbody.innerHTML = logs.map(log => `
