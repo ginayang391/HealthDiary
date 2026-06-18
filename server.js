@@ -61,6 +61,44 @@ const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
+// ─── Information Gain (C4.5) ──────────────────────────────────────────────────
+
+// 計算一組標籤的熵（Entropy）
+function calcEntropy(labels) {
+  const n = labels.length;
+  if (n === 0) return 0;
+  const counts = {};
+  labels.forEach(l => { counts[l] = (counts[l] || 0) + 1; });
+  return -Object.values(counts).reduce((sum, count) => {
+    const p = count / n;
+    return sum + (p > 0 ? p * Math.log2(p) : 0);
+  }, 0);
+}
+
+// 計算某特徵在某門檻值下的資訊增益
+function calcIG(data, feature, threshold) {
+  const labels = data.map(d => d.risk_level);
+  const parentEntropy = calcEntropy(labels);
+  const left  = data.filter(d => d[feature] <  threshold);
+  const right = data.filter(d => d[feature] >= threshold);
+  const weightedEntropy =
+    (left.length  / data.length) * calcEntropy(left.map(d  => d.risk_level)) +
+    (right.length / data.length) * calcEntropy(right.map(d => d.risk_level));
+  return parentEntropy - weightedEntropy;
+}
+
+// 對某特徵窮舉所有中間點，找最佳門檻值
+function findBestThreshold(data, feature) {
+  const vals = [...new Set(data.map(d => d[feature]))].sort((a, b) => a - b);
+  let bestIG = -1, bestThreshold = null;
+  for (let i = 0; i < vals.length - 1; i++) {
+    const threshold = parseFloat(((vals[i] + vals[i + 1]) / 2).toFixed(4));
+    const ig = calcIG(data, feature, threshold);
+    if (ig > bestIG) { bestIG = ig; bestThreshold = threshold; }
+  }
+  return { threshold: bestThreshold, ig: parseFloat(bestIG.toFixed(6)) };
+}
+
 // ─── Decision Tree ────────────────────────────────────────────────────────────
 // 多層決策樹：睡眠 → 步數 → 心情
 // 依資訊增益排序：sleep_hours 分辨力最強，其次 steps，再 mood_score
@@ -126,6 +164,61 @@ app.get('/health-logs', async (req, res) => {
   try {
     const logs = await HealthLog.findAll({ order: [['log_date', 'DESC']] });
     res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /health-logs/info-gain — 依種子資料計算各特徵的資訊增益（C4.5 進階）
+app.get('/health-logs/info-gain', async (req, res) => {
+  try {
+    const raw = await HealthLog.findAll({ raw: true });
+    const data = raw.filter(d => d.risk_level); // 只使用有 risk_level 的資料
+    if (data.length < 10) {
+      return res.status(400).json({ error: '資料筆數不足（需至少10筆），請先載入種子資料' });
+    }
+
+    const features = ['sleep_hours', 'steps', 'mood_score'];
+    const featureNames = { sleep_hours: '睡眠時數', steps: '步數', mood_score: '心情分數' };
+    const baseEntropy = parseFloat(calcEntropy(data.map(d => d.risk_level)).toFixed(6));
+
+    // 計算各風險等級分布
+    const dist = {};
+    data.forEach(d => { dist[d.risk_level] = (dist[d.risk_level] || 0) + 1; });
+
+    // 計算每個特徵的最佳門檻與 IG
+    const results = {};
+    for (const f of features) {
+      const { threshold, ig } = findBestThreshold(data, f);
+      const left  = data.filter(d => d[f] < threshold);
+      const right = data.filter(d => d[f] >= threshold);
+      results[f] = {
+        featureName: featureNames[f],
+        bestThreshold: threshold,
+        informationGain: ig,
+        leftCount: left.length,
+        rightCount: right.length,
+        leftDist:  left.reduce((acc, d)  => { acc[d.risk_level] = (acc[d.risk_level] || 0) + 1; return acc; }, {}),
+        rightDist: right.reduce((acc, d) => { acc[d.risk_level] = (acc[d.risk_level] || 0) + 1; return acc; }, {}),
+      };
+    }
+
+    // 依 IG 排序 → 決定最佳切分順序
+    const sorted = features.slice().sort((a, b) => results[b].informationGain - results[a].informationGain);
+
+    res.json({
+      totalRecords: data.length,
+      riskDistribution: dist,
+      baseEntropy,
+      features: results,
+      optimalSplitOrder: sorted.map(f => ({
+        feature: f,
+        featureName: featureNames[f],
+        informationGain: results[f].informationGain,
+        bestThreshold: results[f].bestThreshold,
+      })),
+      conclusion: `依資訊增益排序，最佳首層切分特徵為「${featureNames[sorted[0]]}」（門檻值 ${results[sorted[0]].bestThreshold}，IG = ${results[sorted[0]].informationGain}），與本系統決策樹設計一致。`,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

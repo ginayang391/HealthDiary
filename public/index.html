@@ -290,6 +290,18 @@
 
   </div>
 
+  <!-- 資訊增益分析（進階加分） -->
+  <div class="card full-card" style="margin-top:1.5rem">
+    <h2>🧮 資訊增益分析（C4.5 決策樹）</h2>
+    <p style="font-size:0.875rem;color:#718096;margin-bottom:1rem;">
+      依種子資料實際計算每個特徵的資訊增益，找出最佳切分特徵與門檻值，驗證決策樹設計是否最佳。
+    </p>
+    <button class="btn btn-secondary" onclick="calcInfoGain()" id="ig-btn">🔬 執行資訊增益計算</button>
+    <div id="ig-result" style="margin-top:1rem;display:none;">
+      <div id="ig-content"></div>
+    </div>
+  </div>
+
   <!-- 趨勢折線圖（完整寬度） -->
   <div class="card full-card" style="margin-top:1.5rem">
     <h2>📈 健康趨勢折線圖</h2>
@@ -503,6 +515,61 @@
   // ── 設定今日日期為預設值 ────────────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('log_date').value = today;
+
+  // ── 資訊增益計算 ──────────────────────────────────────────────────────────
+  async function calcInfoGain() {
+    const btn = document.getElementById('ig-btn');
+    btn.textContent = '⏳ 計算中...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/health-logs/info-gain');
+      const d = await res.json();
+      btn.textContent = '🔬 重新計算';
+      btn.disabled = false;
+      if (!res.ok) { showMsg(d.error); return; }
+
+      const distStr = Object.entries(d.riskDistribution).map(([k,v]) => `${k}風險 ${v}筆`).join('、');
+      const rankColors = ['#e53e3e','#d69e2e','#718096'];
+
+      let html = `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-bottom:1rem;">
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;font-size:0.875rem;">
+            <span>📊 <strong>資料筆數：</strong>${d.totalRecords} 筆</span>
+            <span>🎯 <strong>分布：</strong>${distStr}</span>
+            <span>📐 <strong>基礎熵：</strong>${d.baseEntropy} bits</span>
+          </div>
+        </div>
+        <div style="font-size:0.9rem;font-weight:700;margin-bottom:0.5rem;color:#2b6cb0;">依資訊增益排序（最高優先切分）：</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem;">`;
+
+      d.optimalSplitOrder.forEach((item, idx) => {
+        const f = d.features[item.feature];
+        const badge = ['🥇','🥈','🥉'][idx];
+        const leftDist = Object.entries(f.leftDist).map(([k,v])=>`${k}:${v}`).join(' ');
+        const rightDist = Object.entries(f.rightDist).map(([k,v])=>`${k}:${v}`).join(' ');
+        html += `
+          <div style="border:2px solid ${idx===0?'#3182ce':'#e2e8f0'};border-radius:10px;padding:1rem;background:${idx===0?'#ebf4ff':'white'}">
+            <div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">${badge} ${f.featureName}</div>
+            <div style="font-size:0.8rem;color:#4a5568;margin-bottom:0.3rem;">最佳門檻：<strong>${item.bestThreshold}</strong></div>
+            <div style="font-size:0.8rem;color:#4a5568;margin-bottom:0.3rem;">資訊增益：<strong style="color:${rankColors[idx]}">${item.informationGain}</strong></div>
+            <div style="font-size:0.75rem;color:#718096;">&lt; 門檻：${leftDist}（${f.leftCount}筆）</div>
+            <div style="font-size:0.75rem;color:#718096;">≥ 門檻：${rightDist}（${f.rightCount}筆）</div>
+          </div>`;
+      });
+
+      html += `</div>
+        <div style="background:#f0fff4;border:1.5px solid #9ae6b4;border-radius:8px;padding:0.8rem;font-size:0.875rem;color:#276749;">
+          ✅ <strong>結論：</strong>${d.conclusion}
+        </div>`;
+
+      document.getElementById('ig-content').innerHTML = html;
+      document.getElementById('ig-result').style.display = 'block';
+    } catch (err) {
+      btn.textContent = '🔬 執行資訊增益計算';
+      btn.disabled = false;
+      showMsg('計算失敗：' + err.message);
+    }
+  }
 
   // ── 折線圖 ────────────────────────────────────────────────────────────────
   let trendChart = null;
