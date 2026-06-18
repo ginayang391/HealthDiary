@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智慧健康日誌與風險評估系統</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+      background: #f0f4f8;
+      color: #2d3748;
+    }
+    header {
+      background: linear-gradient(135deg, #3182ce, #2b6cb0);
+      color: white;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; }
+    header p { font-size: 0.9rem; opacity: 0.85; }
+    .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #2b6cb0;
+      border-bottom: 2px solid #ebf4ff;
+      padding-bottom: 0.5rem;
+    }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.3rem; color: #4a5568; }
+    input[type="number"], input[type="date"], input[type="range"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1.5px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+    input:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.15); }
+    input[type="range"] { padding: 0.3rem 0; cursor: pointer; accent-color: #3182ce; }
+    .mood-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: #718096;
+      margin-top: -0.8rem;
+      margin-bottom: 1rem;
+    }
+    .mood-value { font-size: 1.2rem; font-weight: 700; color: #3182ce; text-align: center; margin-bottom: 0.5rem; }
+    .btn {
+      display: inline-block;
+      padding: 0.6rem 1.4rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #3182ce; color: white; width: 100%; }
+    .btn-primary:hover { background: #2b6cb0; }
+    .btn-secondary { background: #edf2f7; color: #4a5568; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-danger { background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+    .btn-danger:hover { background: #fed7d7; }
+    .btn-ai { background: linear-gradient(135deg, #805ad5, #6b46c1); color: white; width: 100%; margin-top: 0.5rem; }
+    .btn-ai:hover { background: linear-gradient(135deg, #6b46c1, #553c9a); }
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .risk-低 { background: #f0fff4; color: #276749; border: 1.5px solid #9ae6b4; }
+    .risk-中 { background: #fffff0; color: #975a16; border: 1.5px solid #f6e05e; }
+    .risk-高 { background: #fff5f5; color: #9b2335; border: 1.5px solid #fc8181; }
+    .risk-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .risk-低 .risk-dot { background: #38a169; }
+    .risk-中 .risk-dot { background: #d69e2e; }
+    .risk-高 .risk-dot { background: #e53e3e; animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .risk-summary {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+    }
+    .risk-summary.低 { background: #f0fff4; border: 1.5px solid #9ae6b4; }
+    .risk-summary.中 { background: #fffff0; border: 1.5px solid #f6e05e; }
+    .risk-summary.高 { background: #fff5f5; border: 1.5px solid #fc8181; }
+    .risk-icon { font-size: 2.5rem; }
+    .risk-label { font-size: 1.3rem; font-weight: 700; }
+    .risk-sub { font-size: 0.85rem; color: #718096; margin-top: 0.2rem; }
+    #ai-advice-box {
+      background: #faf5ff;
+      border: 1.5px solid #d6bcfa;
+      border-radius: 10px;
+      padding: 1rem;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #44337a;
+      min-height: 80px;
+      white-space: pre-wrap;
+    }
+    .table-wrap { overflow-x: auto; margin-top: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { background: #ebf4ff; color: #2b6cb0; padding: 0.6rem 0.8rem; text-align: left; font-weight: 700; border-bottom: 2px solid #bee3f8; }
+    td { padding: 0.55rem 0.8rem; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+    tr:hover td { background: #f7fafc; }
+    tr:last-child td { border-bottom: none; }
+    .empty-state { text-align: center; color: #a0aec0; padding: 2rem 0; font-size: 0.9rem; }
+    .seed-bar {
+      background: #ebf8ff;
+      border: 1.5px solid #bee3f8;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .seed-bar p { font-size: 0.875rem; color: #2c5282; flex: 1; }
+    .spinner { display: none; width: 18px; height: 18px; border: 3px solid #bee3f8; border-top-color: #3182ce; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .stat-num { font-size: 1.8rem; font-weight: 700; color: #3182ce; }
+    .stat-label { font-size: 0.78rem; color: #718096; margin-top: 0.2rem; }
+    .full-card { grid-column: 1 / -1; }
+    .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.875rem; margin-bottom: 1rem; }
+    .alert-error { background: #fff5f5; color: #c53030; border: 1px solid #fc8181; }
+    .alert-success { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+    .decision-tree {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 1rem;
+      font-size: 0.8rem;
+      font-family: monospace;
+      line-height: 1.8;
+      color: #4a5568;
+      overflow-x: auto;
+    }
+    .loading-text { color: #718096; font-style: italic; }
+    .chart-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .chart-tab {
+      padding: 0.35rem 0.9rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid #cbd5e0;
+      background: white;
+      color: #718096;
+      transition: all 0.2s;
+    }
+    .chart-tab.active { background: #3182ce; color: white; border-color: #3182ce; }
+    .chart-wrap { position: relative; height: 220px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏥 智慧健康日誌與風險評估系統</h1>
+    <p>決策樹 × AI 健康分析 — 題目 A</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 種子資料工具列 -->
+  <div class="seed-bar">
+    <p>📊 <strong>首次使用？</strong>點擊右側按鈕載入 90 天模擬種子資料，快速體驗三種風險等級的決策樹分析效果。</p>
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <div class="spinner" id="seed-spinner"></div>
+      <button class="btn btn-secondary" onclick="loadSeed()">載入種子資料</button>
+    </div>
+  </div>
+
+  <!-- 統計卡片 -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">總紀錄筆數</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-high" style="color:#e53e3e">—</div><div class="stat-label">高風險天數</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-low" style="color:#38a169">—</div><div class="stat-label">低風險天數</div></div>
+  </div>
+
+  <div id="msg-area"></div>
+
+  <div class="grid">
+
+    <!-- 左側：新增日誌 + 決策樹說明 -->
+    <div>
+      <div class="card">
+        <h2>📝 新增今日健康日誌</h2>
+        <form id="log-form">
+          <label>紀錄日期</label>
+          <input type="date" id="log_date" required />
+
+          <label>睡眠時數（小時）</label>
+          <input type="number" id="sleep_hours" min="0" max="24" step="0.5" placeholder="例如：7.5" required />
+
+          <label>今日步數</label>
+          <input type="number" id="steps" min="0" placeholder="例如：8000" required />
+
+          <label>心情分數：<span class="mood-value" id="mood-display">5</span></label>
+          <input type="range" id="mood_score" min="1" max="10" value="5"
+            oninput="document.getElementById('mood-display').textContent = this.value" />
+          <div class="mood-display"><span>😞 1（很差）</span><span>😊 10（很好）</span></div>
+
+          <button type="submit" class="btn btn-primary">✅ 送出並評估風險</button>
+        </form>
+      </div>
+
+      <!-- 決策樹邏輯說明 -->
+      <div class="card" style="margin-top:1.5rem">
+        <h2>🌲 決策樹邏輯（三層）</h2>
+        <div class="decision-tree">睡眠 &lt; 6h?
+├─ YES → 步數 &lt; 4000?
+│        ├─ YES → 🔴 高風險
+│        └─ NO  → 心情 &lt; 5?
+│                 ├─ YES → 🔴 高風險
+│                 └─ NO  → 🟡 中風險
+└─ NO  → 步數 &lt; 5000?
+         ├─ YES → 心情 &lt; 5?
+         │        ├─ YES → 🟡 中風險
+         │        └─ NO  → 🟢 低風險
+         └─ NO  → 心情 &lt; 6?
+                  ├─ YES → 🟡 中風險
+                  └─ NO  → 🟢 低風險</div>
+      </div>
+    </div>
+
+    <!-- 右側：風險評估 + AI 建議 -->
+    <div>
+      <div class="card">
+        <h2>🎯 目前風險評估</h2>
+        <div id="risk-display">
+          <div class="empty-state">尚無評估結果，請新增日誌或載入種子資料</div>
+        </div>
+        <button class="btn btn-ai" onclick="getAiAdvice()">🤖 取得 AI 個人化健康建議</button>
+        <div style="margin-top:1rem">
+          <div id="ai-loading" style="display:none;color:#718096;font-size:0.875rem;">⏳ AI 分析中，請稍候...</div>
+          <div id="ai-advice-box" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 趨勢折線圖（完整寬度） -->
+  <div class="card full-card" style="margin-top:1.5rem">
+    <h2>📈 健康趨勢折線圖</h2>
+    <div class="chart-tabs">
+      <button class="chart-tab active" onclick="switchChart('all')">全部指標</button>
+      <button class="chart-tab" onclick="switchChart('sleep')">💤 睡眠時數</button>
+      <button class="chart-tab" onclick="switchChart('steps')">👟 每日步數</button>
+      <button class="chart-tab" onclick="switchChart('mood')">😊 心情分數</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- 歷史紀錄表格（完整寬度） -->
+  <div class="card full-card" style="margin-top:1.5rem">
+    <h2>📋 歷史健康日誌</h2>
+    <div class="table-wrap">
+      <table id="log-table">
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>睡眠（h）</th>
+            <th>步數</th>
+            <th>心情</th>
+            <th>風險等級</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody">
+          <tr><td colspan="6" class="empty-state">載入中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── 工具函式 ──────────────────────────────────────────────────────────────
+  let latestLog = null;
+
+  function riskBadge(r) {
+    const icons = { '高': '🔴', '中': '🟡', '低': '🟢' };
+    const cls = r || '—';
+    if (!r) return '<span style="color:#a0aec0">—</span>';
+    return `<span class="risk-badge risk-${r}"><span class="risk-dot"></span>${icons[r]} ${r}風險</span>`;
+  }
+
+  function showMsg(msg, type = 'error') {
+    const el = document.getElementById('msg-area');
+    el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    setTimeout(() => el.innerHTML = '', 4000);
+  }
+
+  // ── 載入所有日誌 ──────────────────────────────────────────────────────────
+  async function loadLogs() {
+    try {
+      const res = await fetch('/health-logs');
+      const logs = await res.json();
+      const tbody = document.getElementById('log-tbody');
+
+      if (!logs.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">尚無紀錄，請新增或載入種子資料</td></tr>';
+        document.getElementById('stat-total').textContent = '0';
+        document.getElementById('stat-high').textContent = '0';
+        document.getElementById('stat-low').textContent = '0';
+        return;
+      }
+
+      latestLog = logs[0];
+      updateRiskDisplay(latestLog);
+
+      // 更新折線圖
+      allLogs = logs;
+      buildChart(currentChartMode);
+
+      // 統計
+      document.getElementById('stat-total').textContent = logs.length;
+      document.getElementById('stat-high').textContent = logs.filter(l => l.risk_level === '高').length;
+      document.getElementById('stat-low').textContent = logs.filter(l => l.risk_level === '低').length;
+
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td>${log.log_date}</td>
+          <td>${log.sleep_hours} h</td>
+          <td>${Number(log.steps).toLocaleString()}</td>
+          <td>${'⭐'.repeat(Math.min(log.mood_score, 10))} ${log.mood_score}/10</td>
+          <td>${riskBadge(log.risk_level)}</td>
+          <td><button class="btn btn-danger" onclick="deleteLog(${log.id})">🗑 刪除</button></td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      showMsg('載入日誌失敗：' + err.message);
+    }
+  }
+
+  // ── 更新風險顯示區塊 ─────────────────────────────────────────────────────
+  function updateRiskDisplay(log) {
+    if (!log) return;
+    const icons = { '高': '🚨', '中': '⚠️', '低': '✅' };
+    const descs = {
+      '高': '請特別注意您的健康狀況，建議諮詢醫療專業人員',
+      '中': '部分指標需要改善，請留意飲食與作息',
+      '低': '健康狀況良好，請繼續保持現有生活習慣！'
+    };
+    const r = log.risk_level || '—';
+    const el = document.getElementById('risk-display');
+    if (r === '—') { el.innerHTML = '<div class="empty-state">無法判斷風險等級</div>'; return; }
+    el.innerHTML = `
+      <div class="risk-summary ${r}">
+        <div class="risk-icon">${icons[r]}</div>
+        <div>
+          <div class="risk-label">${r}風險</div>
+          <div class="risk-sub">${descs[r]}</div>
+          <div class="risk-sub" style="margin-top:0.3rem">
+            📅 ${log.log_date} ｜ 💤 ${log.sleep_hours}h ｜ 👟 ${Number(log.steps).toLocaleString()} 步 ｜ 😊 ${log.mood_score}/10
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── 新增日誌 ──────────────────────────────────────────────────────────────
+  document.getElementById('log-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = {
+      log_date: document.getElementById('log_date').value,
+      sleep_hours: document.getElementById('sleep_hours').value,
+      steps: document.getElementById('steps').value,
+      mood_score: document.getElementById('mood_score').value,
+    };
+    try {
+      const res = await fetch('/health-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { showMsg(data.error); return; }
+      showMsg(`✅ 新增成功！風險等級：${data.risk_level}`, 'success');
+      // 立即用剛送出的那筆資料更新風險評估區塊
+      latestLog = data;
+      updateRiskDisplay(data);
+      e.target.reset();
+      document.getElementById('mood-display').textContent = '5';
+      loadLogs();
+    } catch (err) {
+      showMsg('新增失敗：' + err.message);
+    }
+  });
+
+  // ── 刪除日誌 ──────────────────────────────────────────────────────────────
+  async function deleteLog(id) {
+    if (!confirm('確定刪除這筆紀錄？')) return;
+    try {
+      const res = await fetch(`/health-logs/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) { showMsg(data.error); return; }
+      showMsg('已刪除', 'success');
+      loadLogs();
+    } catch (err) {
+      showMsg('刪除失敗：' + err.message);
+    }
+  }
+
+  // ── 取得 AI 建議 ─────────────────────────────────────────────────────────
+  async function getAiAdvice() {
+    if (!latestLog) { showMsg('請先新增日誌或載入種子資料後再使用 AI 建議功能'); return; }
+    document.getElementById('ai-loading').style.display = 'block';
+    document.getElementById('ai-advice-box').style.display = 'none';
+    try {
+      const res = await fetch('/health-logs/ai-advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sleep_hours: latestLog.sleep_hours,
+          steps: latestLog.steps,
+          mood_score: latestLog.mood_score,
+          risk_level: latestLog.risk_level,
+        }),
+      });
+      const data = await res.json();
+      document.getElementById('ai-loading').style.display = 'none';
+      document.getElementById('ai-advice-box').style.display = 'block';
+      if (!res.ok) { document.getElementById('ai-advice-box').textContent = '❌ ' + data.error; return; }
+      document.getElementById('ai-advice-box').textContent = data.advice;
+    } catch (err) {
+      document.getElementById('ai-loading').style.display = 'none';
+      document.getElementById('ai-advice-box').style.display = 'block';
+      document.getElementById('ai-advice-box').textContent = '❌ AI 呼叫失敗：' + err.message;
+    }
+  }
+
+  // ── 載入種子資料 ─────────────────────────────────────────────────────────
+  async function loadSeed() {
+    const spinner = document.getElementById('seed-spinner');
+    spinner.style.display = 'block';
+    try {
+      const res = await fetch('/health-logs/seed', { method: 'POST' });
+      const data = await res.json();
+      spinner.style.display = 'none';
+      if (!res.ok) { showMsg(data.error); return; }
+      showMsg(`✅ ${data.message}`, 'success');
+      loadLogs();
+    } catch (err) {
+      spinner.style.display = 'none';
+      showMsg('載入種子資料失敗：' + err.message);
+    }
+  }
+
+  // ── 設定今日日期為預設值 ────────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('log_date').value = today;
+
+  // ── 折線圖 ────────────────────────────────────────────────────────────────
+  let trendChart = null;
+  let allLogs = [];
+  let currentChartMode = 'all';
+
+  function buildChart(mode) {
+    currentChartMode = mode;
+    // 取最近30筆，按日期升序排列
+    const data = [...allLogs].reverse().slice(-30);
+    const labels = data.map(l => l.log_date.slice(5)); // MM-DD
+
+    // 風險等級轉顏色：背景色條
+    const bgColors = data.map(l => {
+      if (l.risk_level === '高') return 'rgba(229,62,62,0.08)';
+      if (l.risk_level === '中') return 'rgba(236,201,75,0.08)';
+      return 'rgba(56,161,105,0.08)';
+    });
+
+    const datasets = [];
+
+    if (mode === 'all' || mode === 'sleep') {
+      datasets.push({
+        label: '💤 睡眠時數 (h)',
+        data: data.map(l => l.sleep_hours),
+        borderColor: '#3182ce',
+        backgroundColor: 'rgba(49,130,206,0.1)',
+        tension: 0.4,
+        yAxisID: 'y',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: mode === 'sleep',
+      });
+    }
+    if (mode === 'all' || mode === 'mood') {
+      datasets.push({
+        label: '😊 心情分數',
+        data: data.map(l => l.mood_score),
+        borderColor: '#805ad5',
+        backgroundColor: 'rgba(128,90,213,0.1)',
+        tension: 0.4,
+        yAxisID: 'y',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: mode === 'mood',
+      });
+    }
+    if (mode === 'all' || mode === 'steps') {
+      datasets.push({
+        label: '👟 步數 (÷1000)',
+        data: data.map(l => (l.steps / 1000).toFixed(1)),
+        borderColor: '#38a169',
+        backgroundColor: 'rgba(56,161,105,0.1)',
+        tension: 0.4,
+        yAxisID: mode === 'steps' ? 'y' : 'y2',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: mode === 'steps',
+      });
+    }
+
+    const scales = {
+      x: {
+        ticks: { font: { size: 11 }, maxRotation: 45 },
+        grid: { color: 'rgba(0,0,0,0.04)' },
+      },
+      y: {
+        position: 'left',
+        ticks: { font: { size: 11 } },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+        title: {
+          display: true,
+          text: mode === 'steps' ? '步數' : (mode === 'all' ? '睡眠(h) / 心情' : (mode === 'sleep' ? '時數' : '分數')),
+          font: { size: 11 },
+        },
+      },
+    };
+    if (mode === 'all') {
+      scales.y2 = {
+        position: 'right',
+        ticks: { font: { size: 11 } },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: '步數(千步)', font: { size: 11 } },
+      };
+    }
+
+    if (trendChart) trendChart.destroy();
+    const ctx = document.getElementById('trend-chart').getContext('2d');
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 12 }, padding: 16 } },
+          tooltip: {
+            callbacks: {
+              afterTitle: (items) => {
+                const idx = items[0].dataIndex;
+                const r = data[idx].risk_level;
+                return `風險等級：${r || '—'}`;
+              },
+            },
+          },
+        },
+        scales,
+      },
+    });
+  }
+
+  function switchChart(mode) {
+    document.querySelectorAll('.chart-tab').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    buildChart(mode);
+  }
+
+  // ── 初始化 ────────────────────────────────────────────────────────────────
+  loadLogs();
+</script>
+
+</body>
+</html>
