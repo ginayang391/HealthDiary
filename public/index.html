@@ -24,7 +24,9 @@
     header h1 { font-size: 1.5rem; font-weight: 700; }
     header p { font-size: 0.9rem; opacity: 0.85; }
     .container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: stretch; }
+    .grid > div { display: flex; flex-direction: column; }
+    .grid > div .card { flex: 1; }
     @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
     .card {
       background: white;
@@ -397,7 +399,11 @@
           <td>${Number(log.steps).toLocaleString()}</td>
           <td>${'⭐'.repeat(Math.min(log.mood_score, 10))} ${log.mood_score}/10</td>
           <td>${riskBadge(log.risk_level)}</td>
-          <td><button class="btn btn-danger" onclick="deleteLog(${log.id})">🗑 刪除</button></td>
+          <td style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button class="btn btn-ai" style="width:auto;padding:0.3rem 0.7rem;font-size:0.8rem;"
+              onclick="selectLogForAI(${JSON.stringify(log).replace(/"/g,'&quot;')})">🤖 AI建議</button>
+            <button class="btn btn-danger" onclick="deleteLog(${log.id})">🗑 刪除</button>
+          </td>
         </tr>
       `).join('');
     } catch (err) {
@@ -471,6 +477,17 @@
     } catch (err) {
       showMsg('刪除失敗：' + err.message);
     }
+  }
+
+  // ── 從歷史列表選取某筆做 AI 建議 ─────────────────────────────────────────
+  function selectLogForAI(log) {
+    latestLog = log;
+    updateRiskDisplay(log);
+    document.getElementById('ai-advice-box').style.display = 'none';
+    document.getElementById('ai-loading').style.display = 'none';
+    // 捲動到風險評估區塊
+    document.querySelector('.grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showMsg(`✅ 已切換至 ${log.log_date} 的紀錄，按「取得 AI 個人化健康建議」查看分析`, 'success');
   }
 
   // ── 取得 AI 建議 ─────────────────────────────────────────────────────────
