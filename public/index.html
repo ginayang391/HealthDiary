@@ -257,19 +257,21 @@
       <!-- 決策樹邏輯說明 -->
       <div class="card" style="margin-top:1.5rem">
         <h2>🌲 決策樹邏輯（三層）</h2>
-        <div class="decision-tree">睡眠 &lt; 6h?
-├─ YES → 步數 &lt; 4000?
-│        ├─ YES → 🔴 高風險
-│        └─ NO  → 心情 &lt; 5?
-│                 ├─ YES → 🔴 高風險
-│                 └─ NO  → 🟡 中風險
-└─ NO  → 步數 &lt; 5000?
-         ├─ YES → 心情 &lt; 5?
-         │        ├─ YES → 🟡 中風險
-         │        └─ NO  → 🟢 低風險
-         └─ NO  → 心情 &lt; 6?
-                  ├─ YES → 🟡 中風險
-                  └─ NO  → 🟢 低風險</div>
+        <div class="decision-tree">Level 1：睡眠 &lt; 6h?
+├─ YES → Level 2：步數 &lt; 4000?
+│        ├─ YES → Level 3：心情 &lt; 5?
+│        │        ├─ YES → 🔴 高風險（三項全差）
+│        │        └─ NO  → 🔴 高風險（睡眠+活動嚴重不足）
+│        └─ NO  → Level 3：心情 &lt; 5?
+│                 ├─ YES → 🔴 高風險（睡眠差+心情差）
+│                 └─ NO  → 🟡 中風險（睡眠差但其他尚可）
+└─ NO  → Level 2：步數 &lt; 5000?
+         ├─ YES → Level 3：心情 &lt; 5?
+         │        ├─ YES → 🟡 中風險（活動少+心情差）
+         │        └─ NO  → 🟢 低風險（睡眠好心情好）
+         └─ NO  → Level 3：心情 &lt; 6?
+                  ├─ YES → 🟡 中風險（睡眠活動好但心情欠佳）
+                  └─ NO  → 🟢 低風險（三項全好）</div>
       </div>
     </div>
 

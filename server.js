@@ -124,34 +124,57 @@ function findBestThreshold(data, feature) {
 //                     └── NO  → LOW（三項皆良好）
 
 function decisionTree(sleep_hours, steps, mood_score) {
+  // 決策樹：三層結構，每筆資料必須依序走完 睡眠 → 步數 → 心情 三個特徵
+  //
+  // Level 1: sleep_hours < 6?
+  //   Level 2: steps < 4000?
+  //     Level 3: mood_score < 5?
+  //       YES → 高（三項全差）
+  //       NO  → 高（睡眠+活動差，心情尚可亦無法挽回）
+  //     Level 3: mood_score < 5?
+  //       YES → 高（睡眠差+心情差）
+  //       NO  → 中（睡眠差但活動+心情尚可）
+  //   Level 2: steps < 5000?
+  //     Level 3: mood_score < 5?
+  //       YES → 中（活動偏少+心情差）
+  //       NO  → 低（睡眠好，活動稍少但心情良好）
+  //     Level 3: mood_score < 6?
+  //       YES → 中（睡眠/活動好但心情欠佳）
+  //       NO  → 低（三項指標皆良好）
+
   // Level 1: 睡眠是否充足
   if (sleep_hours < 6) {
     // Level 2: 活動量是否極低
     if (steps < 4000) {
-      return '高'; // 睡眠差 + 活動量嚴重不足
-    } else {
-      // Level 3: 心情是否差
+      // Level 3: 心情（睡眠+活動雙重不足，心情為最後確認）
       if (mood_score < 5) {
-        return '高'; // 睡眠差 + 心情差（活動雖OK但雙重警示）
+        return '高'; // 三項全差：最高警示
       } else {
-        return '中'; // 睡眠差但活動量OK且心情可接受
+        return '高'; // 睡眠+活動嚴重不足，即使心情尚可仍屬高風險
+      }
+    } else {
+      // Level 3: 心情決定高風險或中風險
+      if (mood_score < 5) {
+        return '高'; // 睡眠差 + 心情差（雙重警示）
+      } else {
+        return '中'; // 睡眠差但活動OK且心情尚可
       }
     }
   } else {
-    // Level 2: 活動量是否不足（門檻較寬鬆，因睡眠充足）
+    // Level 2: 活動量是否不足
     if (steps < 5000) {
-      // Level 3: 心情
+      // Level 3: 心情決定中風險或低風險
       if (mood_score < 5) {
         return '中'; // 睡眠好但活動少且心情差
       } else {
         return '低'; // 睡眠好，活動雖少但心情良好
       }
     } else {
-      // Level 3: 心情（活動量已足夠，心情是最後分歧點）
+      // Level 3: 心情為最後決定因素
       if (mood_score < 6) {
         return '中'; // 睡眠/活動皆好但心情不佳
       } else {
-        return '低'; // 三項指標皆在正常範圍
+        return '低'; // 三項指標皆在良好範圍
       }
     }
   }
